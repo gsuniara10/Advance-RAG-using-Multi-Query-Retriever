@@ -1,0 +1,49 @@
+from langchain_ollama import OllamaEmbeddings
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.vectorstores import Chroma 
+from dotenv import load_dotenv
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_groq import ChatGroq
+from langchain.retrievers.multi_query import MultiQueryRetriever
+
+load_dotenv()
+
+loading_document = PyPDFLoader("Machine Learning. An Algorithmic Perspective 2nd ed.pdf")
+
+document_load = loading_document.load()
+
+embedding_llm = HuggingFaceEmbeddings(
+    model_name= "sentence-transformers/all-MiniLM-L6-v2"
+)
+
+simple_llm  = ChatGroq(
+     model="llama-3.1-8b-instant"
+)
+
+# embedding_llm = OllamaEmbeddings(
+#     model="llama3"
+# )
+
+splitting_document = RecursiveCharacterTextSplitter(chunk_size = 300, chunk_overlap = 50 )
+
+document_split = splitting_document.split_documents(document_load)
+
+storing_vectore_docs = Chroma.from_documents(
+    documents=document_split,
+    embedding=embedding_llm,
+    collection_name="my_collection"
+    )
+
+# Enable MMR in retriever for advance RAG
+multi_query_retriever_object = MultiQueryRetriever.from_llm(
+    retriever= storing_vectore_docs.as_retriever(search_kwargs={"k":4}),
+    llm=simple_llm
+)
+
+
+query = input("Enter the query : ")
+
+llm_output = multi_query_retriever_object.invoke(query)
+
+print(llm_output)
